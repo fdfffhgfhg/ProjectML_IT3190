@@ -121,7 +121,7 @@ model.fit(
 # Save training ,validation and test datasets as csv files
 train_data_provider.to_csv(os.path.join(configs.model_path, "train.csv"))
 val_data_provider.to_csv(os.path.join(configs.model_path, "val.csv"))
-test_data_provider.to_csv(os.path.join(configs.model_path,"test.csv"))
+test_data_provider.to_csv(os.path.join(configs.model_path,"testy.csv"))
 
 
 
