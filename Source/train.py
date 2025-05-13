@@ -72,7 +72,9 @@ for line in tqdm(words):
 # Create a ModelConfigs object to store model configurations
 configs = ModelConfigs()
 
+
 # Save vocab and maximum text length to configs
+
 configs.vocab = "".join(vocab)
 configs.max_text_length = max_len
 configs.save()
