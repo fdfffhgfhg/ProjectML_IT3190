@@ -1,6 +1,7 @@
 # ProjectML_IT3190
 Dự án bài tập lớn môn Nhập môn học máy và Khai phá dữ liệu (IT3190) . Đề tài : Nhận diện chữ viết tay .
-Xin chào tất cả các bạn , đây là mã nguồn của dự án nhận diện chữ viết tay (Text Recognition) của nhóm 17 , lớp 157320 , môn nhập môn học máy và khai phá dữ liệu(IT3190) . Mã nguồn trên được nhóm chúng tôi lập trình và triển khai trên nền tảng VSCode, hệ điều hành Windows , ngôn ngữ lập trình Python và dùng các thư viện học máy phổ biến như keras , tensorflow , ... . Phiên bản python và các thư viện cần thiết đều đã được đề cập ở trên file requirement.txt: 
+Xin chào tất cả các bạn , đây là mã nguồn của dự án nhận diện chữ viết tay (Text Recognition) của nhóm 17 , lớp 157320 , môn nhập môn học máy và khai phá dữ liệu(IT3190) . Mã nguồn trên được nhóm chúng tôi lập trình và triển khai trên nền tảng VSCode, hệ điều hành Windows , ngôn ngữ lập trình Python và dùng các thư viện học máy phổ biến như keras , tensorflow , ... . Phiên bản python và các thư viện cần thiết đều đã được đề cập ở trên file requirement.txt:
+
 PyYAML>=6.0
 tqdm
 qqdm==0.0.7
@@ -13,38 +14,38 @@ matplotlib
 Python = 3.8.2
 mltu = 1.1.8
 tensorflow = 2.10.0
+
+
 Các thư viện cần thiết đều có thể được dễ dàng cài đặt qua lệnh pip trên terminal . Ví dụ , để tải thư viện tensorflow 2.10.0 , ta dùng lệnh : pip install tensorflow==2.10.0 . Để kiểm tra các thư viện đã được cài vào môi trường , bạn có thể dùng dòng lệnh pip list trên terminal.
 Trong dự án này , chúng tôi xây dựng và đánh giá mô hình trên tập dữ liệu IAM Word Dataset . Trước hết , các bạn chạy file downloadDataset.py ở thư mục Source để tải tập dữ liệu . Tập dữ liệu và các file liên quan sẽ được giải nén và lưu trữ trong thư mục Datasets . Dưới đây là mã nguồn để tải tập dữ liệu: 
+
+
      import os
      import tarfile
      from tqdm import tqdm
      from urllib.request import urlopen
      from io import BytesIO
      from zipfile import ZipFile
+     def download_and_unzip(url, extract_to="Datasets", chunk_size=1024*1024):
+           http_response = urlopen(url)
 
+           data = b""
+           iterations = http_response.length // chunk_size + 1
+           for _ in tqdm(range(iterations)):
+           data += http_response.read(chunk_size)
 
-def download_and_unzip(url, extract_to="Datasets", chunk_size=1024*1024):
-    http_response = urlopen(url)
+          zipfile = ZipFile(BytesIO(data))
+         zipfile.extractall(path=extract_to)
 
-    data = b""
-    iterations = http_response.length // chunk_size + 1
-    for _ in tqdm(range(iterations)):
-        data += http_response.read(chunk_size)
-
-    zipfile = ZipFile(BytesIO(data))
-    zipfile.extractall(path=extract_to)
-
-dataset_path = os.path.join("Datasets", "IAM_Words")
-if not os.path.exists(dataset_path):
-    download_and_unzip("https://git.io/J0fjL", extract_to="Datasets")
+     dataset_path = os.path.join("Datasets", "IAM_Words")
+     if not os.path.exists(dataset_path):
+     download_and_unzip("https://git.io/J0fjL", extract_to="Datasets")
 
     file = tarfile.open(os.path.join(dataset_path, "words.tgz"))
     file.extractall(os.path.join(dataset_path, "words"))
 
-Tổng quan về tập dữ liệu IAM Word Dataset : đây là một tập dữ liệu gồm các ảnh chữ viết tay đơn lẻ và mỗi ảnh sẽ có một nhãn tương ứng với nó . Có tổng cộng 115338 ảnh từ đơn , với các nhãn được gán trong file words.txt . Bộ dữ liệu này cung cấp các ví dụ rất đa dạng về các kí tự : 26 chữ cái tiếng anh thường , 26 chữ cái tiếng anh viết hoa , 10 chữ số từ 0 - 9 và 16 kí tự đặc biệt (.,()'":) , vậy nên có thể bước đầu xác định rằng bài toán thực hiện trên tập dữ liệu này sẽ có 78 nhãn. Trong file text cũng gồm khoảng 116000 dòng , cấu trúc của mỗi dòng như sau : 
-
-
-       a01-000u-00-05 ok 154 1438 746 382 73 NP Gaitskell
+Tổng quan về tập dữ liệu IAM Word Dataset : đây là một tập dữ liệu gồm các ảnh chữ viết tay đơn lẻ và mỗi ảnh sẽ có một nhãn tương ứng với nó . Có tổng cộng 115338 ảnh từ đơn , với các nhãn được gán trong file words.txt . Bộ dữ liệu này cung cấp các ví dụ rất đa dạng về các kí tự : 26 chữ cái tiếng anh thường , 26 chữ cái tiếng anh viết hoa , 10 chữ số từ 0 - 9 và 16 kí tự đặc biệt (.,()'":) , vậy nên có thể bước đầu xác định rằng bài toán thực hiện trên tập dữ liệu này sẽ có 78 nhãn. Trong file text cũng gồm khoảng 116000 dòng , cấu trúc của mỗi dòng như sau : /n
+    a01-000u-00-05 ok 154 1438 746 382 73 NP Gaitskell
 
     a01-000u-00-05 : Chỉ đường dẫn tới ảnh trong dataset
     ok : Nhãn thông báo rằng ảnh này là tốt về mặt chất lượng (err nếu ngược lại)
@@ -55,14 +56,15 @@ Tổng quan về tập dữ liệu IAM Word Dataset : đây là một tập dữ
 
 
 
-Với các dòng có nhãn 'ok' thì hoàn toàn có thể được đưa vào trong dataset để huấn luyện . Trong tập dữ liệu này , có tới gần 19000 ảnh bị gắn nhãn 'err' , và việc đưa những ảnh lỗi này vào trong quá trình huấn luyện có rất nhiều rủi ro : Giảm độ chính xác của mô hình , Overfitting cho nhãn sai , làm giảm độ tin cậy của mô hình ... Do đó , nhóm chúng tôi sẽ sử dụng tổng cộng là 96456 ảnh được gán nhãn 'ok' để đưa vào dataset . 
+Với các dòng có nhãn 'ok' thì hoàn toàn có thể được đưa vào trong dataset để huấn luyện . Trong tập dữ liệu này , có tới gần 19000 ảnh bị gắn nhãn 'err' , và việc đưa những ảnh lỗi này vào trong quá trình huấn luyện có rất nhiều rủi ro : Giảm độ chính xác của mô hình , Overfitting cho nhãn sai , làm giảm độ tin cậy của mô hình ... Do đó , nhóm chúng tôi sẽ sử dụng tổng cộng là 96456 ảnh được gán nhãn 'ok' để đưa vào dataset .
+
 Dataset của chúng tôi là một danh sách các cặp (x,y) trong đó : x là đường dẫn tới ảnh trong tập dữ liệu IAM , y là nhãn được lấy ra từ file word.text . Với một ảnh , giả dụ như ví dụ trên , ảnh a01-000u-00-05 nằm tại đường dẫn a01/a01-000u/a01-000u-00-05.png , tức là ta hoàn toàn có thể truy cập được tới ảnh thông qua đường dẫn của ảnh trong file text , bằng một số thao tác trên chuỗi . Dưới đây là mã nguồn tạo dataset của chúng tôi , mã nguồn này tạo ra dataset bằng cách đọc từng dòng trên file word.text : 
 
-   dataset, vocab, max_len = [], set(), 0
-   words = open(os.path.join(dataset_path, "words.txt"), "r").readlines()
-   for line in tqdm(words):
-       if line.startswith("#"):
-           continue
+      dataset, vocab, max_len = [], set(), 0
+      words = open(os.path.join(dataset_path, "words.txt"), "r").readlines()
+      for line in tqdm(words):
+          if line.startswith("#"):
+               continue
 
        line_split = line.split(" ")
        if line_split[1] == "err":
