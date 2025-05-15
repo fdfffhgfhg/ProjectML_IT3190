@@ -1,6 +1,8 @@
 # ProjectML_IT3190
 Dự án bài tập lớn môn Nhập môn học máy và Khai phá dữ liệu (IT3190) . Đề tài : Nhận diện chữ viết tay .
 
+(Introduction và cài thư viện)
+
 Xin chào tất cả các bạn , đây là mã nguồn của dự án nhận diện chữ viết tay (Text Recognition) của nhóm 17 , lớp 157320 , môn nhập môn học máy và khai phá dữ liệu(IT3190) . Mã nguồn trên được nhóm chúng tôi lập trình và triển khai trên nền tảng VSCode, hệ điều hành Windows , ngôn ngữ lập trình Python và dùng các thư viện học máy phổ biến như keras , tensorflow , ... . Phiên bản python và các thư viện cần thiết đều đã được đề cập ở trên file requirement.txt:
 
 - PyYAML>=6.0
@@ -23,6 +25,7 @@ Các thư viện cần thiết đều có thể được dễ dàng cài đặt 
 
 Để kiểm tra các thư viện đã được cài vào môi trường , bạn có thể dùng dòng lệnh pip list trên terminal.
 
+(Tải tập dữ liệu)
 
 Trong dự án này , chúng tôi xây dựng và đánh giá mô hình trên tập dữ liệu IAM Word Dataset . Trước hết , các bạn chạy file downloadDataset.py ở thư mục Source để tải tập dữ liệu . Tập dữ liệu và các file liên quan sẽ được giải nén và lưu trữ trong thư mục Datasets . Dưới đây là mã nguồn để tải tập dữ liệu: 
 
@@ -51,6 +54,8 @@ Trong dự án này , chúng tôi xây dựng và đánh giá mô hình trên t�
     file = tarfile.open(os.path.join(dataset_path, "words.tgz"))
     file.extractall(os.path.join(dataset_path, "words"))
 ```
+
+(Tìm hiểu tập dữ liệu)
 
 Tổng quan về tập dữ liệu IAM Word Dataset : đây là một tập dữ liệu gồm các ảnh chữ viết tay đơn lẻ và mỗi ảnh sẽ có một nhãn tương ứng với nó . Có tổng cộng 115338 ảnh từ đơn , với các nhãn được gán trong file words.txt . Bộ dữ liệu này cung cấp các ví dụ rất đa dạng về các kí tự : 26 chữ cái tiếng anh thường , 26 chữ cái tiếng anh viết hoa , 10 chữ số từ 0 - 9 và 16 kí tự đặc biệt (.,()'":) , vậy nên có thể bước đầu xác định rằng bài toán thực hiện trên tập dữ liệu này sẽ có 78 nhãn. Trong file text cũng gồm khoảng 116000 dòng , cấu trúc của mỗi dòng như sau : 
 
@@ -98,6 +103,8 @@ Dataset của chúng tôi là một danh sách các cặp (x,y) trong đó : x l
 
 Như các bạn thấy , trong mã nguồn trên , ngoài việc cập nhật dataset , chúng tôi còn cập nhật thêm vocab gồm các kí tự xuất hiện trên các nhãn và max_len là độ dài nhãn lớn nhất . Chúng tôi sẽ trình bày chi tiết về việc các biến này sẽ được sử dụng như thế nào trong bước xây dựng mô hình.
 
+(Cấu hình cho model)
+
 Chúng tôi thiết kế cấu hình của model trong file config.py , tại đó chúng tôi tạo một lớp ModelConfigs lưu các thông số của mô hình :
 ```text
         self.model_path = os.path.join("Models/", datetime.strftime(datetime.now(), "%Y%m%d%H%M")) : Trong quá trình huấn luyện , các thông tin    của model(log , cập nhật tham số , ...) sẽ được lưu trong thư mục Models với tệp tên là nhãn thời gian lúc bắt đầu train.
@@ -108,12 +115,15 @@ Chúng tôi thiết kế cấu hình của model trong file config.py , tại đ
         worker : Số luồng (CPU workers) dùng để load dữ liệu song song trong quá trình huấn luyện.
         vocab : Là danh sách các kí tự mà mô hình có thể dự đoán được . Chúng tôi lưu thông tin của biến vocab (ở đoạn code ở trên) vào thuộc tính này , do mô hình chỉ dự đoán các ảnh trong tập IAM Word.
         max_text_length : Độ dài tối đa của nhãn mà mô hình sẽ xử lý . Chúng tôi gán giá trị nhãn dài nhất trong tập dữ liệu IAM (là 21) vào thuộc tính này. Tất nhiên , trong thực tế sẽ có những từ có độ dài lớn hơn 21 rất nhiều -> việc dự đoán sai , nhưng việc giới hạn đầu ra của nhãn dự đoán cũng có những ưu điểm nhất định : giúp tăng tốc huấn luyện , tăng tính ổn định của mô hình , giảm chi phí tính toán ...
-````
+```
+(Tiền xử lý dữ liệu)
+
 Với dataset thu được ở trên , chúng tôi chuyển nó vào đối tượng DataProvider : đây là 'dataset thực' mà chúng tôi sẽ đưa vào mô hình huấn luyện . Chúng tôi chia tập dữ liệu thành 3 phần : train:validate:test với tỷ lệ 90:5:5 (hoặc có thể là 80:10:10) .
    Với ảnh (images), chúng tôi resize chúng về cùng một kích thước cố định (32*128) và đối với riêng tập train , chúng tôi thực hiện các phép tăng cường dữ liệu như : Chỉnh độ sáng , Chỉnh độ dày của chữ , Chỉnh độ sắc của ảnh , Xoay ảnh . Các phép tăng cường dữ liệu nhằm giúp cho dữ liệu được đa dạng hóa và gần với dữ liệu thực tế hơn.
    Với các nhãn (label) , chúng tôi thực hiện LabelIndexing đối với chuỗi để chuyển thành chuỗi chỉ số , dùng chuỗi vocab trong lớp config làm đối chiếu . Sau đó , với mỗi vecto chỉ số , chúng tôi thực hiện LabelPadding , gán thêm nhãn chỉ số để cho mỗi vecto đều có một kích thước cố định - ở đây chính là độ dài của max_text_length. Các nhãn mới đều mang một giá trị blank (có thể là -1 , 100) , nhưng ở đây chúng tôi sẽ cài mặc định là độ dài của chuỗi vocab , và điều này không gây ảnh hưởng gì cả.
 
-Về thiết kế Model.
+(Xác định bài toán , phương pháp và thiết kế mô hình)
+
 Bài toán từ đầu được nhóm chúng tôi xác định chính là nhận diện chữ viết tay , đây là bài toán thuộc lớp bài toán nhận dạng chuỗi , thuộc kiểu bài toán học có giám sát . Giải pháp mà chúng tôi áp dụng cho bài toán này chính là thiết kế một mạng CNN + RNN(Bi-LSTM) + CTC . Đây là phương pháp hiện đại dùng để giải quyết bài toán nhận dạng chuỗi , với rất nhiều ưu điểm :
 
 - Không cần phải phân đoạn ảnh để lấy từng kí tự.
@@ -123,7 +133,7 @@ Bài toán từ đầu được nhóm chúng tôi xác định chính là nhận
 
 (Ô Hoàng Edit phần thiết kế mô hình vào đây)
 
-Đánh giá mô hình trong khi huấn luyện 
+(Đánh giá mô hình trong khi huấn luyện) 
 
 Để đánh giá hiệu suất và độ chính xác của mô hình , chúng tôi sử dụng các độ đo (metric) như : CER(Character Error Rate) , WER(Word Error Rate) , loss . Trong khi lặp qua tập luyện ở mỗi epoch khi huấn luyện mô hình , giá trị này sẽ liên tục được cập nhật.
 
@@ -145,6 +155,10 @@ Giải thích về các độ đo :
 Nhìn chung , cả 3 giá trị này càng thấp thì mô hình học càng chính xác . Sau mỗi epoch khi mà mô hình lặp qua tập dữ liệu một lần , nó sẽ cập nhật các giá trị loss,CER,WER,val_loss(loss trên tập validation),val_CER(CER trên tập validation),val_WER(WER trên tập validation) trong file log.log
 
 (Đánh giá mô hình sau khi đã huấn luyện)
+
+Sau khi đã huấn luyện mô hình , chúng tôi tạo file Inference Model dùng để đánh giá mô hình trên tập test . Chương trình sẽ chạy qua từng ảnh ở trên tập test và hiển thị chúng trên màn hình , sau đó sẽ dùng mô hình để dự đoán nhãn của ảnh , và đánh giá kết quả dự đoán với nhãn gốc qua độ đo CER và WER. Trong quá trình đó , chúng tôi cập nhật sai số trung bình trên biến accum_CER để đánh giá tổng quát mô hình trên tập test.
+
+(Định hướng và phát triển mô hình)
 
 Tuy rằng đã rất cố gắng trong quá trình tìm hiểu và xây dựng mô hình , và đã thu được kết quả khá khả quan , thế nhưng mô hình của chúng tôi sẽ có những thiếu xót . Chúng tôi xin phép đề cập các giải pháp để nâng cấp mô hình , làm cho mô hình dự đoán chính xác hơn :
 - Một mô hình có thể học tốt khi tập dữ liệu mà nó sử dụng để train đủ lớn và đủ độ bao quát. Do vậy , một cách để nâng cao hiệu suất của mô hình chính là huấn luyện nó trên một tập dữ liệu lớn hơn và bao quát hơn tập IAM Word.
