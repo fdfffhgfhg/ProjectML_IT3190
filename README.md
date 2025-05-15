@@ -1,5 +1,6 @@
 # ProjectML_IT3190
 Dự án bài tập lớn môn Nhập môn học máy và Khai phá dữ liệu (IT3190) . Đề tài : Nhận diện chữ viết tay .
+
 Xin chào tất cả các bạn , đây là mã nguồn của dự án nhận diện chữ viết tay (Text Recognition) của nhóm 17 , lớp 157320 , môn nhập môn học máy và khai phá dữ liệu(IT3190) . Mã nguồn trên được nhóm chúng tôi lập trình và triển khai trên nền tảng VSCode, hệ điều hành Windows , ngôn ngữ lập trình Python và dùng các thư viện học máy phổ biến như keras , tensorflow , ... . Phiên bản python và các thư viện cần thiết đều đã được đề cập ở trên file requirement.txt:
 
 - PyYAML>=6.0
@@ -119,3 +120,36 @@ Bài toán từ đầu được nhóm chúng tôi xác định chính là nhận
 - Xử lý tốt với các trường hợp chữ dính liền
 - Xử lý được từ với độ dài không cố định
 - Việc cài đặt tuy phức tạp , nhưng đảm bảo độ chính xác và tốc độ cao.
+
+(Ô Hoàng Edit phần thiết kế mô hình vào đây)
+
+Đánh giá mô hình trong khi huấn luyện 
+
+Để đánh giá hiệu suất và độ chính xác của mô hình , chúng tôi sử dụng các độ đo (metric) như : CER(Character Error Rate) , WER(Word Error Rate) , loss . Trong khi lặp qua tập luyện ở mỗi epoch khi huấn luyện mô hình , giá trị này sẽ liên tục được cập nhật.
+
+Giải thích về các độ đo : 
+
+     CER(Character Error Rate) : Là tỷ lệ kí tự sai . Công thức tính CER cho một nhãn dự đoán so với nhãn thật của ảnh là : S+D+I/N . Trong đó:
+     
+     - S : Số kí tự bị thay thế so với nhãn
+     - I : Số kí tự thêm vào (kí tự thừa)
+     - D : Số kí tự bị mất đi
+     - N : Tổng số kí tự ở nhãn gốc
+     
+     WER(Word Error Rate) về cách tính giống như CER , nhưng phạm vi xét được mở rộng lên thành từ.
+     
+     Loss : Giá trị mà hàm CTC Loss trả về
+     
+     Mô hình học sai hoàn toàn khi giá trị CER , WER >= 1 và đúng hoàn toàn khi CER,WER = 0
+
+Nhìn chung , cả 3 giá trị này càng thấp thì mô hình học càng chính xác . Sau mỗi epoch khi mà mô hình lặp qua tập dữ liệu một lần , nó sẽ cập nhật các giá trị loss,CER,WER,val_loss(loss trên tập validation),val_CER(CER trên tập validation),val_WER(WER trên tập validation) trong file log.log
+
+(Đánh giá mô hình sau khi đã huấn luyện)
+
+Tuy rằng đã rất cố gắng trong quá trình tìm hiểu và xây dựng mô hình , và đã thu được kết quả khá khả quan , thế nhưng mô hình của chúng tôi sẽ có những thiếu xót . Chúng tôi xin phép đề cập các giải pháp để nâng cấp mô hình , làm cho mô hình dự đoán chính xác hơn :
+- Một mô hình có thể học tốt khi tập dữ liệu mà nó sử dụng để train đủ lớn và đủ độ bao quát. Do vậy , một cách để nâng cao hiệu suất của mô hình chính là huấn luyện nó trên một tập dữ liệu lớn hơn và bao quát hơn tập IAM Word.
+- Tăng kích thước mô hình bằng cách tăng số lớp ẩn hoặc tăng số lượng tham số trong mô hình . Điều này giúp cho mô hình có thể "học" được các đặc trưng kĩ càng hơn , giúp gia tăng độ chính xác cho mô hình.
+- Thay đổi learning rate : Trong quá trình huấn luyện , chúng tôi liên tục thử nghiệm với các giá trị Learning rate khác nhau : 0.0005,0.001,0.002 . Nhìn chung , tốc độ học lớn hơn giúp mô hình hội tụ nhanh hơn , nhưng chúng tôi thích việc đặt learning rate thấp vì mô hình học tuy chậm và cần nhiều epoch hơn, nhưng mô hình học rất ổn định.
+- Áp dụng thêm các kĩ thuật tăng cường dữ liệu : Trong bài toán này , chúng tôi đã sử dụng các kĩ thuật tăng cường dữ liệu như Tăng độ dày của chữ , Xoay ảnh , Chỉnh độ sáng ... Tuy nhiên , các bạn vẫn có thể sử dụng các kĩ thuật khác như : Thêm nhiễu , Tăng độ tương phản ... Tăng cường dữ liệu là một công đoạn quan trọng trong xử lý dữ liệu , nó giúp giảm overfitting cho mô hình , tăng độ bao quát của mô hình mà không cần phải thu thập quá nhiều dữ liệu.
+
+Cảm ơn các bạn đã dành thời gian đọc . Bạn có thể tải , trải nghiệm và phát triển mô hình theo hướng của riêng mình hoàn toàn miễn phí . Hy vọng rằng tài liệu này có thể giúp bạn trong con đường học tập của mình.
