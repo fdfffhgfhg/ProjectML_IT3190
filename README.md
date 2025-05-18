@@ -131,7 +131,107 @@ Bài toán từ đầu được nhóm chúng tôi xác định chính là nhận
 - Xử lý được từ với độ dài không cố định
 - Việc cài đặt tuy phức tạp , nhưng đảm bảo độ chính xác và tốc độ cao.
 
-(Ô Hoàng Edit phần thiết kế mô hình vào đây)
+# THIẾT KẾ MÔ HÌNH
+Hàm ```train_model``` dưới đây được sử dụng thiết kế mô hình:	
+```python
+# model.py
+from keras import layers
+from keras.models import Model
+
+from mltu.model_utils import residual_block
+
+def train_model(input_dim, output_dim, activation='leaky_relu', dropout=0.2):
+    
+    inputs = layers.Input(shape=input_dim, name="input")
+
+    # normalize images here instead in preprocessing step
+    input = layers.Lambda(lambda x: x / 255)(inputs)
+
+    x1 = residual_block(input, 16, activation=activation, skip_conv=True, strides=1, dropout=dropout)
+
+    x2 = residual_block(x1, 16, activation=activation, skip_conv=True, strides=2, dropout=dropout)
+    x3 = residual_block(x2, 16, activation=activation, skip_conv=False, strides=1, dropout=dropout)
+
+    x4 = residual_block(x3, 32, activation=activation, skip_conv=True, strides=2, dropout=dropout)
+    x5 = residual_block(x4, 32, activation=activation, skip_conv=False, strides=1, dropout=dropout)
+
+    x6 = residual_block(x5, 64, activation=activation, skip_conv=True, strides=2, dropout=dropout)
+    x7 = residual_block(x6, 64, activation=activation, skip_conv=True, strides=1, dropout=dropout)
+
+    x8 = residual_block(x7, 64, activation=activation, skip_conv=False, strides=1, dropout=dropout)
+    x9 = residual_block(x8, 64, activation=activation, skip_conv=False, strides=1, dropout=dropout)
+
+    squeezed = layers.Reshape((x9.shape[-3] * x9.shape[-2], x9.shape[-1]))(x9)
+
+    blstm = layers.Bidirectional(layers.LSTM(128, return_sequences=True))(squeezed)
+    blstm = layers.Dropout(dropout)(blstm)
+
+    output = layers.Dense(output_dim + 1, activation='softmax', name="output")(blstm)
+
+    model = Model(inputs=inputs, outputs=output)
+    return model
+```
+Mô hình trên là sự kết hợp của:
+
+- **ResNet** – một biến thể của CNN (thông qua các ```residual_block```) dùng để trích xuất các đặc trưng
+- **LSTM** – một biến thể của RNN (dùng Bidirectional LSTM) để học các phụ thuộc của các kí tự trong chuỗi.
+- **Fully Connected Layer** cuối cùng để dự đoán các ký tự.
+  
+Cụ thể, mô hình tiến hành:
+
+- Lớp này chuẩn hóa giá trị pixel của hình ảnh bằng cách chia cho 255
+- Sử dụng 9 khối ```residual_block``` liên tiếp để trích xuất dặc trưng từ ảnh.
+  + Mỗi khối sẽ có 16 (hoặc 32 hoặc 64) filter để học các đặc trưng từ đơn giản đến phức tạp.
+  + Sau đó sẽ được giữ nguyên hoặc giảm kích thước không gian (qua tham số ```strides```) giúp giảm tải tính toán.
+  + Tham số ```dropout=0.2``` thể hiện bỏ ngẫu nhiên 20% số neurons để giảm overfitting.
+  + Output của khối này là input của khối tiếp theo
+   
+- Sau các khối ```residual_block```, tensor có dạng 3D (height, width, channels) được chuyển thành 2D (time_steps, features) để chuẩn bị cho lớp LSTM
+- Lớp **Bidirectional LTSM** với 128 unit xử lý chuỗi đặc trưng, sẽ trả về đầu ra cho mỗi bước thời gian (time_steps)
+- Thêm ```Dropout``` sau LSTM để giảm overfitting, giúp mô hình tổng quát hóa tốt hơn.
+- Output layer là lớp Dense với số unit là ```output_dim + 1``` và hàm ```activation``` là ‘softmax’thực hiện việc dự đoán xác suất cho từng ký tự tại mỗi bước thời gian.
+  
+Mô hình nhận vào các hình ảnh và trả về các chuỗi kí tự tương ứng trong mỗi hình.
+
+### Nhóm xây dựng và biên dịch mô hình bằng đoạn mã dưới đây:
+```python
+# Creating TensorFlow model architecture
+model = train_model(
+    input_dim = (configs.height, configs.width, 3),
+    output_dim = len(configs.vocab),
+)
+
+# Compile the model and print summary
+model.compile(
+    optimizer=tf.keras.optimizers.Adam(learning_rate=configs.learning_rate), 
+    loss=CTCloss(), 
+    metrics=[CWERMetric(padding_token=len(configs.vocab))],
+    run_eagerly=False
+)
+model.summary(line_length=110)
+```
+Cụ thể hơn:
+
+- Hàm loss được sử dụng là ```CTCLoss()```
+- Bộ Optimizer được sử dụng là Adam tới tốc độ học ```configs.learning_rate``` (được định nghĩa trong file ```configs.py```)
+- Quá trình huấn luyện mô hình được đánh giá qua thông số CWER (được xác định trong lớp ```CWERMetric``` của ```mltu```)
+  + ```CWERMetric``` là tỷ lệ giữa số lượng ký tự sai trong dự đoán của mô hình và tổng số ký tự trong nhãn thực tế, đo lường độ chính xác của mô hình ở cấp độ ký tự
+    
+Trong quá trình huấn luyện, cần thiết phải thiết lập các callbacks để giúp theo dõi, tối ưu hóa và lưu trữ mô hình:
+```python
+# Define callbacks
+earlystopper = EarlyStopping(monitor='val_CER', patience=20, verbose=1)
+checkpoint = ModelCheckpoint(f"{configs.model_path}/model.h5", monitor='val_CER', verbose=1, save_best_only=True, mode='min')
+trainLogger = TrainLogger(configs.model_path)
+tb_callback = TensorBoard(f'{configs.model_path}/logs', update_freq=1)
+reduceLROnPlat = ReduceLROnPlateau(monitor='val_CER', factor=0.9, min_delta=1e-10, patience=10, verbose=1, mode='auto')
+model2onnx = Model2onnx(f"{configs.model_path}/model.h5")
+```
+Các thiết lập quan trọng để tối ưu hóa và kiểm soát mô hình bao gồm:
+- **EarlyStopping**: Giúp tránh overfitting bằng cách dừng huấn luyện khi mô hình không còn cải thiện giá trị ```val_CER``` trên tập validation sau 20 epochs.
+- **ModelCheckpoint**: : Lưu mô hình tốt nhất dựa trên một ```val_CER``` trong quá trình huấn luyện, đảm bảo mô hình tốt nhất được lưu lại, hữu ích khi cần khôi phục mô hình sau huấn luyện.
+- **ReduceLROnPlateau**: Giảm learning rate (giảm 10%, còn lại 90%) khi ```val_CER``` không cải thiện trong 10 epochs, giúp mô hình hội tụ tốt hơn.
+
 
 (Đánh giá mô hình trong khi huấn luyện) 
 
