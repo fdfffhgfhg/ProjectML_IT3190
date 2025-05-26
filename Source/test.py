@@ -75,11 +75,11 @@ data_provider = DataProvider(
         ],
 )
 
-# Split the dataset into training and validation sets
-train_data_provider, val_and_test_data_provider = data_provider.split(split = 0.8)
+# Split the dataset into training,  validation and test sets (90:5:5)
+train_data_provider, val_and_test_data_provider = data_provider.split(split = 0.9)
 val_data_provider , test_data_provider = val_and_test_data_provider.split(split = 0.5)
 
-# Augment training data with random brightness, rotation and erode/dilate
+# Augment training data 
 train_data_provider.augmentors = [
     RandomBrightness(), 
     RandomErodeDilate(),
@@ -93,7 +93,7 @@ model = train_model(
     output_dim = len(configs.vocab),
 )
 
-# Compile the model and print summary
+# Compile the model with Adam optimizer , CTC Loss function and CWER Metric
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=configs.learning_rate), 
     loss=CTCloss(), 
@@ -101,7 +101,7 @@ model.compile(
 )
 model.summary(line_length=110)
 
-# Define callbacks
+# Callbacks
 earlystopper = EarlyStopping(monitor="val_CER", patience=20, verbose=1)
 checkpoint = ModelCheckpoint(f"{configs.model_path}/model.h5", monitor="val_CER", verbose=1, save_best_only=True, mode="min")
 trainLogger = TrainLogger(configs.model_path)
@@ -109,7 +109,6 @@ tb_callback = TensorBoard(f"{configs.model_path}/logs", update_freq=1)
 reduceLROnPlat = ReduceLROnPlateau(monitor="val_CER", factor=0.9, min_delta=1e-10, patience=10, verbose=1, mode="auto")
 model2onnx = Model2onnx(f"{configs.model_path}/model.h5")
 
-# Train the model
 model.fit(
     train_data_provider,
     validation_data=val_data_provider,
@@ -118,7 +117,6 @@ model.fit(
     workers=configs.train_workers
 )
 
-# Save training ,validation and test datasets as csv files
 train_data_provider.to_csv(os.path.join(configs.model_path, "train.csv"))
 val_data_provider.to_csv(os.path.join(configs.model_path, "val.csv"))
 test_data_provider.to_csv(os.path.join(configs.model_path,"testy.csv"))
