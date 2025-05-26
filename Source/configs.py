@@ -13,5 +13,5 @@ class ModelConfigs(BaseModelConfigs):
         self.max_text_length = 0
         self.batch_size = 1024
         self.learning_rate = 0.002
-        self.train_epochs = 1000
+        self.train_epochs = 100
         self.train_workers = 64
