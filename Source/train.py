@@ -1,3 +1,4 @@
+
 import tensorflow as tf
 try: [tf.config.experimental.set_memory_growth(gpu, True) for gpu in tf.config.experimental.list_physical_devices("GPU")]
 except: pass
@@ -18,30 +19,12 @@ from model import train_model
 from configs import ModelConfigs
 
 import os
-import tarfile
 from tqdm import tqdm
 from urllib.request import urlopen
-from io import BytesIO
-from zipfile import ZipFile
 
 
-def download_and_unzip(url, extract_to="Datasets", chunk_size=1024*1024):
-    http_response = urlopen(url)
-
-    data = b""
-    iterations = http_response.length // chunk_size + 1
-    for _ in tqdm(range(iterations)):
-        data += http_response.read(chunk_size)
-
-    zipfile = ZipFile(BytesIO(data))
-    zipfile.extractall(path=extract_to)
 
 dataset_path = os.path.join("Datasets", "IAM_Words")
-if not os.path.exists(dataset_path):
-    download_and_unzip("https://git.io/J0fjL", extract_to="Datasets")
-
-    file = tarfile.open(os.path.join(dataset_path, "words.tgz"))
-    file.extractall(os.path.join(dataset_path, "words"))
 
 dataset, vocab, max_len = [], set(), 0
 
@@ -92,10 +75,11 @@ data_provider = DataProvider(
         ],
 )
 
-# Split the dataset into training and validation sets
-train_data_provider, val_data_provider = data_provider.split(split = 0.9)
+# Split the dataset into training,  validation and test sets (90:5:5)
+train_data_provider, val_and_test_data_provider = data_provider.split(split = 0.9)
+val_data_provider , test_data_provider = val_and_test_data_provider.split(split = 0.5)
 
-# Augment training data with random brightness, rotation and erode/dilate
+# Augment training data 
 train_data_provider.augmentors = [
     RandomBrightness(), 
     RandomErodeDilate(),
@@ -109,7 +93,7 @@ model = train_model(
     output_dim = len(configs.vocab),
 )
 
-# Compile the model and print summary
+# Compile the model with Adam optimizer , CTC Loss function and CWER Metric
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=configs.learning_rate), 
     loss=CTCloss(), 
@@ -117,7 +101,7 @@ model.compile(
 )
 model.summary(line_length=110)
 
-# Define callbacks
+# Callbacks
 earlystopper = EarlyStopping(monitor="val_CER", patience=20, verbose=1)
 checkpoint = ModelCheckpoint(f"{configs.model_path}/model.h5", monitor="val_CER", verbose=1, save_best_only=True, mode="min")
 trainLogger = TrainLogger(configs.model_path)
@@ -125,7 +109,6 @@ tb_callback = TensorBoard(f"{configs.model_path}/logs", update_freq=1)
 reduceLROnPlat = ReduceLROnPlateau(monitor="val_CER", factor=0.9, min_delta=1e-10, patience=10, verbose=1, mode="auto")
 model2onnx = Model2onnx(f"{configs.model_path}/model.h5")
 
-# Train the model
 model.fit(
     train_data_provider,
     validation_data=val_data_provider,
@@ -133,6 +116,13 @@ model.fit(
     callbacks=[earlystopper, checkpoint, trainLogger, reduceLROnPlat, tb_callback, model2onnx],
     workers=configs.train_workers
 )
+
+train_data_provider.to_csv(os.path.join(configs.model_path, "train.csv"))
+val_data_provider.to_csv(os.path.join(configs.model_path, "val.csv"))
+test_data_provider.to_csv(os.path.join(configs.model_path,"testy.csv"))
+
+
+
 
 # Save training and validation datasets as csv files
 train_data_provider.to_csv(os.path.join(configs.model_path, "train.csv"))
